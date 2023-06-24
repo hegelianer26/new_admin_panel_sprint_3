@@ -11,7 +11,7 @@ class PostgresConfig(BaseSettings):
     options: str = Field(..., env="DB_options")
 
     class Config:
-        env_file = ".env"
+        env_file = "../django_api/.env"
         env_file_encoding = 'utf-8'
 
     @property
