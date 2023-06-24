@@ -1,11 +1,6 @@
 import time
 from functools import wraps
-from logging import getLogger, StreamHandler
-
-
-logger = getLogger(__name__)
-logger.addHandler(StreamHandler())
-logger.setLevel("INFO")
+from loggings import logger
 
 
 EXECUTION_ERROR = "Произошла ошибка при выполнении функции {name}: {error}."

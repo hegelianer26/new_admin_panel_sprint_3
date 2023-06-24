@@ -1,12 +1,7 @@
-from logging import getLogger, StreamHandler
+from loggings import logger
 from elasticsearch import Elasticsearch
 from configs import etl_settings
 from decorators import backoff
-
-
-logger = getLogger(__name__)
-logger.addHandler(StreamHandler())
-logger.setLevel("INFO")
 
 
 MAPPING_FOR_INDEX = {
@@ -129,7 +124,8 @@ class ElasticSearchConnection:
     @backoff
     def _connect(self):
         self.my_connection = Elasticsearch('http://172.17.0.1:9200/')
-        logger.info(f'Соединение с Elasticsearch:{self.my_connection.ping()}')
+        logger.info(
+            'Соединение с Elasticsearch: %s', self.my_connection.ping())
         if not self.my_connection.ping():
             self.my_connection = Elasticsearch('http://172.17.0.1:9200/')
             raise ConnectionRefusedError
@@ -140,7 +136,7 @@ class ElasticSearchConnection:
             pass
         self.my_connection.indices.create(
             index=index, settings=ES_SETTINGS, mappings=MAPPING_FOR_INDEX)
-        logger.info(f'Индекс {index} создан')
+        logger.info('Индекс %s создан', index)
 
     @backoff
     def __del__(self):

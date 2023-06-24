@@ -3,16 +3,10 @@ from datetime import datetime
 from postgres_from import PostgresConnection
 from elastic_to import ElasticSearchConnection
 from configs import etl_settings
-from logging import getLogger, StreamHandler
+from loggings import logger
 from elasticsearch.helpers import streaming_bulk
 from threading import Timer
-from sql_queries import (
-    sql_movies, sql_persons, sql_genres, sql_movie, sql_genre, sql_person)
-
-
-logger = getLogger(__name__)
-logger.addHandler(StreamHandler())
-logger.setLevel("INFO")
+from sql_queries import big_sql_query, small_sql_query
 
 
 def get_time():
@@ -33,11 +27,11 @@ def check_needs(db,  query):
         return i[0]
 
 
-def extract(db, query, table):
+def extract(db, query):
     updated = get_time()
     data = db.extract_data(query, updated, etl_settings.batch_size)
     logger.info(
-        f'Выгружено {len(data)} фильмов на основе обновления таблицы {table}')
+        'Выгружено %d фильмов', len(data))
     return data
 
 
@@ -79,22 +73,16 @@ if __name__ == '__main__':
 
     my_storage = State(
         JsonFileStorage(file_path=etl_settings.storage_file_path))
-    queries_main = {
-        'Movies': sql_movies, 'Persons': sql_persons, 'Genres': sql_genres}
-    queries_for_check = [sql_movie, sql_person, sql_genre]
 
     def f():
         logger.info('начало etl')
         db = PostgresConnection()
         Timer(20.0, f).start()
-        for query_check, query_main in zip(queries_for_check,
-                                           queries_main.items()):
-            if check_needs(db, query_check) > get_time():
-                logger.info('начало загрузки')
-                load(extract(db, query_main[1], query_main[0]))
-            else:
-                logger.info(
-                    f'Elasticseach в актуальном состоянии, обновлений'
-                    f'в таблице {query_main[0]} не найдено')
+        if check_needs(db, small_sql_query) > get_time():
+            logger.info('начало загрузки')
+            load(extract(db, big_sql_query))
+        else:
+            logger.info(
+                'Elasticseach в актуальном состоянии, обновлений не найдено')
         logger.info('завершение etl')
     f()
