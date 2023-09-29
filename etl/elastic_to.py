@@ -1,6 +1,6 @@
 from loggings import logger
 from elasticsearch import Elasticsearch
-from configs import etl_settings
+from configs import etl_settings, elastic_setings
 from decorators import backoff
 
 
@@ -13,8 +13,21 @@ MAPPING_FOR_INDEX = {
       "imdb_rating": {
         "type": "float"
       },
-      "genre": {
+      "genre_names": {
         "type": "keyword"
+      },
+      "genre": {
+        "type": "nested",
+        "dynamic": "strict",
+        "properties": {
+          "uuid": {
+            "type": "keyword"
+          },
+          "name": {
+            "type": "text",
+            "analyzer": "ru_en"
+          }
+        }
       },
       "title": {
         "type": "text",
@@ -29,7 +42,7 @@ MAPPING_FOR_INDEX = {
         "type": "text",
         "analyzer": "ru_en"
       },
-      "director": {
+      "director_name": {
         "type": "text",
         "analyzer": "ru_en",
       },
@@ -45,10 +58,10 @@ MAPPING_FOR_INDEX = {
         "type": "nested",
         "dynamic": "strict",
         "properties": {
-          "id": {
+          "uuid": {
             "type": "keyword"
           },
-          "name": {
+          "full_name": {
             "type": "text",
             "analyzer": "ru_en"
           }
@@ -58,10 +71,22 @@ MAPPING_FOR_INDEX = {
         "type": "nested",
         "dynamic": "strict",
         "properties": {
-          "id": {
+          "uuid": {
             "type": "keyword"
           },
-          "name": {
+          "full_name": {
+            "type": "text",
+            "analyzer": "ru_en"
+          }
+        }
+      },
+      "director": {
+        "dynamic": "strict",
+        "properties": {
+          "uuid": {
+            "type": "keyword"
+          },
+          "full_name": {
             "type": "text",
             "analyzer": "ru_en"
           }
@@ -69,6 +94,7 @@ MAPPING_FOR_INDEX = {
       }
     }
   }
+
 ES_SETTINGS = {
     "refresh_interval": "1s",
     "analysis": {
@@ -123,20 +149,23 @@ class ElasticSearchConnection:
 
     @backoff
     def _connect(self):
-        self.my_connection = Elasticsearch('http://172.17.0.1:9200/')
+        self.my_connection = Elasticsearch(
+            f'http://{elastic_setings.host}:{elastic_setings.port}')
         logger.info(
             'Соединение с Elasticsearch: %s', self.my_connection.ping())
         if not self.my_connection.ping():
-            self.my_connection = Elasticsearch('http://172.17.0.1:9200/')
+            self.my_connection = Elasticsearch(
+                f'http://{elastic_setings.host}:{elastic_setings.port}')
             raise ConnectionRefusedError
 
     @backoff
     def create_index(self, index):
         if self.my_connection.indices.exists(index=index):
             pass
-        self.my_connection.indices.create(
-            index=index, settings=ES_SETTINGS, mappings=MAPPING_FOR_INDEX)
-        logger.info('Индекс %s создан', index)
+        else:
+            self.my_connection.indices.create(
+                index=index, settings=ES_SETTINGS, mappings=MAPPING_FOR_INDEX)
+            logger.info('Индекс %s создан', index)
 
     @backoff
     def __del__(self):
